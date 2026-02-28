@@ -75,6 +75,9 @@ WSGI_APPLICATION = 'e_kalolsavam.wsgi.application'
 
 USE_SQLITE = os.getenv('USE_SQLITE', 'False') == 'True'
 
+# allow a full database URL (eg. from Supabase) to override other settings
+DATABASE_URL = os.getenv('DATABASE_URL')
+
 if USE_SQLITE:
     DATABASES = {
         'default': {
@@ -83,16 +86,37 @@ if USE_SQLITE:
         }
     }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.getenv('DATABASE_NAME'),
-            'USER': os.getenv('DATABASE_USER'),
-            'PASSWORD': os.getenv('DATABASE_PASSWORD'),
-            'HOST': os.getenv('DATABASE_HOST'),
-            'PORT': os.getenv('DATABASE_PORT', '3306'),
+    if DATABASE_URL:
+        # parse URL with dj_database_url if available, otherwise simple fallback
+        try:
+            import dj_database_url
+            DATABASES = {'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+        except ImportError:
+            # basic parsing assuming standard postgres URL
+            import urllib.parse as _urlparse
+            url = _urlparse.urlparse(DATABASE_URL)
+            DATABASES = {
+                'default': {
+                    'ENGINE': 'django.db.backends.postgresql',
+                    'NAME': url.path[1:],
+                    'USER': url.username,
+                    'PASSWORD': url.password,
+                    'HOST': url.hostname,
+                    'PORT': url.port or '5432',
+                }
+            }
+    else:
+        # legacy mysql config, kept for backward compatibility
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': os.getenv('DATABASE_NAME'),
+                'USER': os.getenv('DATABASE_USER'),
+                'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+                'HOST': os.getenv('DATABASE_HOST'),
+                'PORT': os.getenv('DATABASE_PORT', '3306'),
+            }
         }
-    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
