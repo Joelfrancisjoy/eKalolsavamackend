@@ -41,15 +41,15 @@ jobs:
           python -m pip show psycopg || true
           echo "PYTHON IMPORT TESTS:"
           python - <<'PY'
-import sys
-print('Python', sys.version)
-try:
-    import psycopg
-    print('Imported psycopg', getattr(psycopg, '__version__', 'unknown'))
-except Exception as e:
-    print('psycopg import failed:', type(e).__name__, e)
-    raise SystemExit(1)
-PY
+          import sys
+          print('Python', sys.version)
+          try:
+              import psycopg
+              print('Imported psycopg', getattr(psycopg, '__version__', 'unknown'))
+          except Exception as e:
+              print('psycopg import failed:', type(e).__name__, e)
+              raise SystemExit(1)
+          PY
 
       - name: Prepare for migration
         env:
