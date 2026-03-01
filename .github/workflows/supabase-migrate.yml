@@ -6,9 +6,6 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,16 +37,7 @@ jobs:
           echo "SHOW PACKAGE INFO:"
           python -m pip show psycopg || true
           echo "PYTHON IMPORT TESTS:"
-          python - <<'PY'
-          import sys
-          print('Python', sys.version)
-          try:
-              import psycopg
-              print('Imported psycopg', getattr(psycopg, '__version__', 'unknown'))
-          except Exception as e:
-              print('psycopg import failed:', type(e).__name__, e)
-              raise SystemExit(1)
-          PY
+          python -c "import sys; print('Python', sys.version); import psycopg; print('Imported psycopg', getattr(psycopg, '__version__', 'unknown'))"
 
       - name: Prepare for migration
         env:
