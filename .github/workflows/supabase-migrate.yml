@@ -39,6 +39,44 @@ jobs:
           echo "PYTHON IMPORT TESTS:"
           python -c "import sys; print('Python', sys.version); import psycopg; print('Imported psycopg', getattr(psycopg, '__version__', 'unknown'))"
 
+      - name: Force IPv4 for DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          import socket
+          import urllib.parse
+
+          url = os.environ.get("DATABASE_URL")
+          if not url:
+              raise SystemExit("DATABASE_URL is not set")
+
+          parsed = urllib.parse.urlparse(url)
+          host = parsed.hostname
+          if not host:
+              raise SystemExit("DATABASE_URL has no hostname")
+
+          ipv4 = None
+          for family, _, _, _, sockaddr in socket.getaddrinfo(host, None, socket.AF_INET):
+              ipv4 = sockaddr[0]
+              break
+
+          if not ipv4:
+              raise SystemExit(f"Could not resolve an IPv4 address for host: {host}")
+
+          qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+          qs["hostaddr"] = [ipv4]
+          new_query = urllib.parse.urlencode(qs, doseq=True)
+          new_url = parsed._replace(query=new_query).geturl()
+
+          github_env = os.environ.get("GITHUB_ENV")
+          if not github_env:
+              raise SystemExit("GITHUB_ENV is not set")
+          with open(github_env, "a", encoding="utf-8") as f:
+              f.write(f"DATABASE_URL={new_url}\n")
+          PY
+
       - name: Prepare for migration
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
