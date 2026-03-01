@@ -27,6 +27,28 @@ jobs:
           pip install psycopg-binary
           pip install -r requirements.txt
 
+      - name: Verify psycopg installation
+        run: |
+          echo "PIP LIST:"
+          pip list
+          echo "SHOW PACKAGE INFO:"
+          pip show psycopg-binary || pip show psycopg2-binary || true
+          echo "PYTHON IMPORT TESTS:"
+          python - <<'PY'
+import sys
+print('Python', sys.version)
+try:
+    import psycopg
+    print('Imported psycopg', getattr(psycopg, '__version__', 'unknown'))
+except Exception as e:
+    print('psycopg import failed:', type(e).__name__, e)
+try:
+    import psycopg2
+    print('Imported psycopg2', getattr(psycopg2, '__version__', 'unknown'))
+except Exception as e:
+    print('psycopg2 import failed:', type(e).__name__, e)
+PY
+
       - name: Run migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
