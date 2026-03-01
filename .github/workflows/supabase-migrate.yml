@@ -49,12 +49,29 @@ except Exception as e:
     print('psycopg2 import failed:', type(e).__name__, e)
 PY
 
-      - name: Run migrations
+      - name: Prepare for migration
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           DEBUG: 'False'
         run: |
+          # reinstall adapter just in case
+          python -m pip install psycopg-binary
+          echo "=== final import check ==="
+          python - <<'PY'
+import sys
+print('sys.path', sys.path)
+try:
+    import psycopg
+    print('psycopg imported', psycopg.__version__)
+except Exception as e:
+    print('failed psycopg import:', e)
+try:
+    import psycopg2
+    print('psycopg2 imported', psycopg2.__version__)
+except Exception as e:
+    print('failed psycopg2 import:', e)
+PY
           python manage.py migrate --noinput
           # collectstatic is optional; allow it to fail harmlessly if staticfiles not configured
           python manage.py collectstatic --noinput || true
