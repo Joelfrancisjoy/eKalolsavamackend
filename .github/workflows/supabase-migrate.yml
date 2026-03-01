@@ -42,9 +42,11 @@ jobs:
       - name: Force IPv4 for DATABASE_URL
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOSTNAME }}
         run: |
           python - <<'PY'
           import os
+          import ipaddress
           import socket
           import urllib.parse
 
@@ -57,13 +59,48 @@ jobs:
           if not host:
               raise SystemExit("DATABASE_URL has no hostname")
 
+          hostname_override = os.environ.get("DATABASE_HOSTNAME")
+
+          # If the URL already contains an IPv6 literal (e.g. 2406:...), we cannot resolve an IPv4
+          # address from it. In that case, require a hostname override (e.g. db.<ref>.supabase.co).
+          try:
+              ip = ipaddress.ip_address(host)
+              if ip.version == 6:
+                  if not hostname_override:
+                      raise SystemExit(
+                          "DATABASE_URL host appears to be an IPv6 literal. "
+                          "Set a GitHub secret DATABASE_HOSTNAME to your DB hostname (IPv4-resolvable), "
+                          "e.g. db.<project-ref>.supabase.co or the Supabase pooler host."
+                      )
+                  host_to_resolve = hostname_override
+              else:
+                  host_to_resolve = host
+          except ValueError:
+              host_to_resolve = host
+
           ipv4 = None
-          for family, _, _, _, sockaddr in socket.getaddrinfo(host, None, socket.AF_INET):
-              ipv4 = sockaddr[0]
-              break
+          for family, _, _, _, sockaddr in socket.getaddrinfo(host_to_resolve, None, socket.AF_UNSPEC):
+              if family == socket.AF_INET:
+                  ipv4 = sockaddr[0]
+                  break
 
           if not ipv4:
-              raise SystemExit(f"Could not resolve an IPv4 address for host: {host}")
+              raise SystemExit(f"Could not resolve an IPv4 address for host: {host_to_resolve}")
+
+          # If a hostname override is provided, also rewrite the URL host to that hostname.
+          # This helps TLS / SNI validation while hostaddr forces the IPv4 connection.
+          if hostname_override:
+              userinfo = ""
+              if parsed.username:
+                  userinfo += urllib.parse.quote(parsed.username, safe="")
+              if parsed.password:
+                  userinfo += ":" + urllib.parse.quote(parsed.password, safe="")
+              if userinfo:
+                  userinfo += "@"
+
+              port = parsed.port
+              netloc = f"{userinfo}{hostname_override}" + (f":{port}" if port else "")
+              parsed = parsed._replace(netloc=netloc)
 
           qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
           qs["hostaddr"] = [ipv4]
@@ -79,7 +116,6 @@ jobs:
 
       - name: Prepare for migration
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           DEBUG: 'False'
         run: |
