@@ -14,6 +14,12 @@ from rest_framework.response import Response
 from rest_framework import status
 
 
+def _database_engine_name():
+    database_config = settings.DATABASES.get('default', {})
+    engine = database_config.get('ENGINE')
+    return engine.split('.')[-1] if isinstance(engine, str) and engine else 'unknown'
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def health_check(request):
@@ -45,13 +51,13 @@ def health_check(request):
         health_data['checks']['database'] = {
             'status': 'healthy',
             'message': 'Database connection successful',
-            'engine': settings.DATABASES['default']['ENGINE'].split('.')[-1]
+            'engine': _database_engine_name()
         }
     except Exception as e:
         health_data['checks']['database'] = {
             'status': 'unhealthy',
             'message': f'Database connection failed: {str(e)}',
-            'engine': settings.DATABASES['default']['ENGINE'].split('.')[-1]
+            'engine': _database_engine_name()
         }
         overall_status = False
     
@@ -148,7 +154,7 @@ def system_info(request):
         'allowed_hosts': settings.ALLOWED_HOSTS,
         'installed_apps_count': len(settings.INSTALLED_APPS),
         'middleware_count': len(settings.MIDDLEWARE),
-        'database_engine': settings.DATABASES['default']['ENGINE'].split('.')[-1],
+        'database_engine': _database_engine_name(),
         'timezone': settings.TIME_ZONE,
         'language_code': settings.LANGUAGE_CODE,
         'cors_enabled': 'corsheaders' in settings.INSTALLED_APPS,
