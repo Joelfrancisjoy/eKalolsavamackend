@@ -12,7 +12,7 @@ RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.getenv(
-    'ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver,.vercel.app').split(',')
+    'ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver,.vercel.app,.onrender.com').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
