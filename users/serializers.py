@@ -13,11 +13,79 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone', 'approval_status', 'must_reset_password', 'student_class', 'section', 'school', 'school_category_extra']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone', 'approval_status', 'must_reset_password', 'student_class', 'section', 'school', 'school_category_extra', 'gender']
         read_only_fields = ['id', 'section']
 
     def get_section(self, obj):
         return obj.section
+
+
+class StudentSelfProfileUpdateSerializer(serializers.ModelSerializer):
+    gender = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'phone', 'student_class', 'gender']
+
+    def validate_first_name(self, value: str) -> str:
+        if value is None:
+            return value
+        if not value or not value.strip():
+            raise serializers.ValidationError('First name is required.')
+
+        name = value.strip()
+        if len(name) < 1 or len(name) > 150:
+            raise serializers.ValidationError('First name must be between 1 and 150 characters.')
+        if not re.match(r"^[a-zA-Z\s\-']+$", name):
+            raise serializers.ValidationError('First name can only contain letters, spaces, hyphens, and apostrophes.')
+        return name.title()
+
+    def validate_last_name(self, value: str) -> str:
+        if value is None:
+            return value
+        if not value or not value.strip():
+            raise serializers.ValidationError('Last name is required.')
+
+        name = value.strip()
+        if len(name) < 1 or len(name) > 150:
+            raise serializers.ValidationError('Last name must be between 1 and 150 characters.')
+        if not re.match(r"^[a-zA-Z\s\-']+$", name):
+            raise serializers.ValidationError('Last name can only contain letters, spaces, hyphens, and apostrophes.')
+        return name.title()
+
+    def validate_phone(self, value: Optional[str]) -> str:
+        if value in [None, '']:
+            return ''
+
+        digits = re.sub(r'\D', '', value)
+        if len(digits) != 10:
+            raise serializers.ValidationError('Phone number must be exactly 10 digits')
+        if not re.match(r'^[789]', digits):
+            raise serializers.ValidationError('Phone number must start with 7, 8, or 9')
+        if digits == '0000000000':
+            raise serializers.ValidationError('Phone number cannot be all zeros')
+        if re.search(r'(\d)\1{4,}', digits):
+            raise serializers.ValidationError('Phone number has an invalid repetitive sequence')
+        return digits
+
+    def validate_student_class(self, value):
+        if value in [None, '']:
+            return None
+        try:
+            cls_int = int(value)
+        except (TypeError, ValueError):
+            raise serializers.ValidationError('Class must be a valid number')
+        if not (1 <= cls_int <= 12):
+            raise serializers.ValidationError('Class must be between 1 and 12')
+        return cls_int
+
+    def validate_gender(self, value: Optional[str]) -> str:
+        if value in [None, '']:
+            return None
+        normalized = str(value).strip().upper()
+        if normalized not in ['BOYS', 'GIRLS']:
+            raise serializers.ValidationError('Gender must be BOYS or GIRLS')
+        return normalized
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -32,7 +100,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'username', 'email', 'password', 'password_confirm',
             'first_name', 'last_name', 'phone', 'role',
             'staff_id_photo', 'college_id_photo', 'school', 'school_category_extra', 'student_class',
-            'judge_id_photo'
+            'judge_id_photo', 'gender'
         ]
         extra_kwargs = {
             'username': {'required': False},
@@ -241,6 +309,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 if not (1 <= cls_int <= 12):
                     raise serializers.ValidationError({'student_class': 'Class must be between 1 and 12'})
 
+            gender = attrs.get('gender')
+            if gender not in ['BOYS', 'GIRLS']:
+                raise serializers.ValidationError({'gender': 'Gender is required for students and must be BOYS or GIRLS'})
+
             college_id = attrs.get('college_id_photo')
             if not college_id:
                 raise serializers.ValidationError({'college_id_photo': 'College ID photo is required for students'})
@@ -273,6 +345,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             # Ensure no student-only requirements enforced
             attrs['college_id_photo'] = attrs.get('college_id_photo')  # allowed but not required
             # school and extra are optional for volunteers
+            attrs['gender'] = None
         elif role == 'judge':
             # Judge-specific: require JPEG judge ID photo; do not require username/password here
             judge_id = attrs.get('judge_id_photo')
@@ -290,9 +363,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                     candidate = f"{base}{suffix}"
                     suffix += 1
                 attrs['username'] = candidate
+            attrs['gender'] = None
         else:
             # Other roles (future): pass
             attrs['college_id_photo'] = attrs.get('college_id_photo')
+            attrs['gender'] = None
 
         return attrs
 
@@ -385,4 +460,4 @@ class SchoolSerializer(serializers.ModelSerializer):
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['role', 'phone', 'approval_status', 'student_class', 'school', 'school_category_extra']
+        fields = ['role', 'phone', 'approval_status', 'student_class', 'school', 'school_category_extra', 'gender']

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'social_django',
     'core',  # Core system utilities
     'users',
+    'catalog',
     'events',
     'scores',
     'certificates',
@@ -90,7 +91,7 @@ else:
         # parse URL with dj_database_url if available, otherwise simple fallback
         try:
             import dj_database_url
-            DATABASES = {'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+            DATABASES = {'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)}
         except ImportError:
             # basic parsing assuming standard postgres URL
             import urllib.parse as _urlparse
@@ -103,6 +104,9 @@ else:
                     'PASSWORD': url.password,
                     'HOST': url.hostname,
                     'PORT': url.port or '5432',
+                    'OPTIONS': {
+                        'sslmode': 'require',
+                    },
                 }
             }
     else:
@@ -226,6 +230,8 @@ if DEBUG:
         "http://127.0.0.1:8000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "http://localhost:8002",
+        "http://127.0.0.1:8002",
     ]
 else:
     CORS_ALLOWED_ORIGINS = [
